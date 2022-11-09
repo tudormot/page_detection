@@ -1,17 +1,18 @@
 pdf_parser_utils/data/
-**.json
-**.pdf
+**/*.json
+**/*.pdf
+**/*.zip
 
 # Built application files
-**.apk
-**.ap_
-**.aab
+**/*.apk
+**/*.ap_
+**/*.aab
 
 # Files for the ART/Dalvik VM
-**.dex
+**/*.dex
 
 # Java class files
-**.class
+**/*.class
 
 # Generated files
 translate-showcase/bin/
@@ -19,8 +20,8 @@ translate-showcase/gen/
 translate-showcase/out/
 
 # Gradle files
-translate-showcase/.gradle/
-translate-showcase/build/
+**/.gradle/
+**/build/
 
 # Local configuration file (sdk path, etc)
 translate-showcase/local.properties
@@ -29,7 +30,7 @@ translate-showcase/local.properties
 translate-showcase/proguard/
 
 # Log Files
-**.log
+**/*.log
 
 # Android Studio Navigation editor temp files
 translate-showcase/.navigation/
@@ -38,9 +39,9 @@ translate-showcase/.navigation/
 captures/
 
 # IntelliJ
-**.iml
-translate-showcase/.idea/
-**pycache*
+**/*.iml
+**/.idea/
+**/*pycache*
 
 
 # Cache of project

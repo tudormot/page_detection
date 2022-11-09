@@ -18,11 +18,17 @@
 package com.google.mlkit.showcase.translate.main
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.*
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.params.StreamConfigurationMap
+import android.media.CamcorderProfile
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
+import android.util.Size
 import android.view.LayoutInflater
 import android.view.SurfaceHolder
 import android.view.View
@@ -30,6 +36,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.core.*
 import androidx.camera.core.Camera
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -59,8 +66,8 @@ class MainFragment : Fragment() {
 
         // We only need to analyze the part of the image that has text, so we set crop percentages
         // to avoid analyze the entire image from the live camera feed.
-        const val DESIRED_WIDTH_CROP_PERCENT = 8
-        const val DESIRED_HEIGHT_CROP_PERCENT = 74
+        const val DESIRED_WIDTH_CROP_PERCENT = 2
+        const val DESIRED_HEIGHT_CROP_PERCENT = 5
 
         // This is an arbitrary number we are using to keep tab of the permission
         // request. Where an app has multiple context for requesting permission,
@@ -104,6 +111,18 @@ class MainFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        openInfoMenuButton.setOnClickListener {
+            if(this@MainFragment.infoMenu.visibility == View.GONE){
+                this.infoMenu.visibility = View.VISIBLE
+                openInfoMenuButton.text = "Hide info menu"
+            }
+            else{
+                this.infoMenu.visibility = View.GONE
+                openInfoMenuButton.text = "Show info menu"
+            }
+        }
+        viewModel.sourceText.observe(viewLifecycleOwner, Observer { detectedTextView.text = it })
+
 
         container = view as ConstraintLayout
         viewFinder = container.findViewById(R.id.viewfinder)
@@ -135,39 +154,39 @@ class MainFragment : Fragment() {
             android.R.layout.simple_spinner_dropdown_item, viewModel.availableLanguages
         )
 
-        targetLangSelector.adapter = adapter
-        targetLangSelector.setSelection(adapter.getPosition(Language("en")))
-        targetLangSelector.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                viewModel.targetLang.value = adapter.getItem(position)
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
-
-        viewModel.sourceLang.observe(viewLifecycleOwner, Observer { srcLang.text = it.displayName })
-        viewModel.translatedText.observe(viewLifecycleOwner, Observer { resultOrError ->
-            resultOrError?.let {
-                if (it.error != null) {
-                    translatedText.error = resultOrError.error?.localizedMessage
-                } else {
-                    translatedText.text = resultOrError.result
-                }
-            }
-        })
-        viewModel.modelDownloading.observe(viewLifecycleOwner, Observer { isDownloading ->
-            progressBar.visibility = if (isDownloading) {
-                View.VISIBLE
-            } else {
-                View.INVISIBLE
-            }
-            progressText.visibility = progressBar.visibility
-        })
+//        targetLangSelector.adapter = adapter
+//        targetLangSelector.setSelection(adapter.getPosition(Language("en")))
+//        targetLangSelector.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+//            override fun onItemSelected(
+//                parent: AdapterView<*>,
+//                view: View?,
+//                position: Int,
+//                id: Long
+//            ) {
+//                viewModel.targetLang.value = adapter.getItem(position)
+//            }
+//
+//            override fun onNothingSelected(parent: AdapterView<*>) {}
+//        }
+//
+//        viewModel.sourceLang.observe(viewLifecycleOwner) { srcLang.text = it.displayName }
+//        viewModel.translatedText.observe(viewLifecycleOwner) { resultOrError ->
+//            resultOrError?.let {
+//                if (it.error != null) {
+//                    translatedText.error = resultOrError.error?.localizedMessage
+//                } else {
+//                    translatedText.text = resultOrError.result
+//                }
+//            }
+//        }
+//        viewModel.modelDownloading.observe(viewLifecycleOwner) { isDownloading ->
+//            progressBar.visibility = if (isDownloading) {
+//                View.VISIBLE
+//            } else {
+//                View.INVISIBLE
+//            }
+//            progressText.visibility = progressBar.visibility
+//        }
 
         overlay.apply {
             setZOrderOnTop(true)
@@ -211,25 +230,39 @@ class MainFragment : Fragment() {
         }, ContextCompat.getMainExecutor(requireContext()))
     }
 
-    private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
+//    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
+    private fun  bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
         // Get screen metrics used to setup camera for full screen resolution
+//        val cameraInfo = cameraProvider.availableCameraInfos.first {
+//            it!!.cameraSelector.!! == CameraSelector.LENS_FACING_BACK
+//        }
+
         val metrics = DisplayMetrics().also { viewFinder.display.getRealMetrics(it) }
         Log.d(TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
 
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(TAG, "Preview aspect ratio: $screenAspectRatio")
 
+        Log.d(TAG,"size of surface: ${viewFinder.width}/${viewFinder.height}")
+
         val rotation = viewFinder.display.rotation
+        Log.d(TAG,"The rotations is: ${rotation}. (0 = 0 degrees, 1 = 90 degrees etc.)")
 
-        val preview = Preview.Builder()
-            .setTargetAspectRatio(screenAspectRatio)
+    val requestedCameraFOV = Size(metrics.widthPixels,metrics.heightPixels)
+//    val requestedCameraFOV = Size(500,2000)
+
+
+    val preview = Preview.Builder()
+//            .setTargetAspectRatio(screenAspectRatio)
             .setTargetRotation(rotation)
+            .setTargetResolution(requestedCameraFOV)
             .build()
-
         // Build the image analysis use case and instantiate our analyzer
         imageAnalyzer = ImageAnalysis.Builder()
             // We request aspect ratio but no resolution
-            .setTargetAspectRatio(screenAspectRatio)
+//            .setTargetAspectRatio(screenAspectRatio)
+//            .setSi
+            .setTargetResolution(requestedCameraFOV)
             .setTargetRotation(rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
@@ -244,7 +277,6 @@ class MainFragment : Fragment() {
                     )
                 )
             }
-        viewModel.sourceText.observe(viewLifecycleOwner, Observer { srcText.text = it })
         viewModel.imageCropPercentages.observe(viewLifecycleOwner,
             Observer { drawOverlay(overlay.holder, it.first, it.second) })
 
@@ -262,6 +294,15 @@ class MainFragment : Fragment() {
             )
             viewFinder.scaleType = PreviewView.ScaleType.FIT_CENTER
             preview.setSurfaceProvider(viewFinder.surfaceProvider)
+//            val cameraId = Camera2CameraInfo.from(camera!!.cameraInfo).cameraId
+//            val cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
+//            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+//            val configs: StreamConfigurationMap? = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+//
+//            val imageAnalysisSizes = configs?.getOutputSizes(ImageFormat.YUV_420_888)
+//            imageAnalysisSizes?.forEach {
+//                Log.i("LOG", "Image capturing YUV_420_888 available output size: $it")
+//            }
         } catch (exc: IllegalStateException) {
             Log.e(TAG, "Use case binding failed. This must be running on main thread.", exc)
         }
@@ -290,10 +331,10 @@ class MainFragment : Fragment() {
 
         val cornerRadius = 25f
         // Set rect centered in frame
-        val rectTop = surfaceHeight * heightCropPercent / 2 / 100f
-        val rectLeft = surfaceWidth * widthCropPercent / 2 / 100f
-        val rectRight = surfaceWidth * (1 - widthCropPercent / 2 / 100f)
-        val rectBottom = surfaceHeight * (1 - heightCropPercent / 2 / 100f)
+        val rectTop = surfaceHeight * heightCropPercent  / 100f
+        val rectLeft = surfaceWidth * widthCropPercent / 100f
+        val rectRight = surfaceWidth * (1 - widthCropPercent  / 100f)
+        val rectBottom = surfaceHeight * (1 - heightCropPercent / 100f)
         val rect = RectF(rectLeft, rectTop, rectRight, rectBottom)
         canvas.drawRoundRect(
             rect, cornerRadius, cornerRadius, rectPaint
