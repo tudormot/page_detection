@@ -71,8 +71,10 @@ dependencies {
     implementation 'com.google.mlkit:language-id:17.0.4'
     implementation 'com.google.mlkit:translate:17.0.1'
 
+    //tudor:
     implementation 'com.google.android.material:material:1.7.0'
     implementation 'com.google.code.gson:gson:2.10'
+    implementation 'info.debatty:java-string-similarity:2.0.0'
 
 }
 apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'

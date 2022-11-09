@@ -26,12 +26,15 @@ import androidx.camera.core.ImageProxy
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.MutableLiveData
 import com.google.android.gms.tasks.Task
+import com.google.gson.Gson
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.showcase.translate.util.ImageUtils
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import info.debatty.java.stringsimilarity.Cosine
+import info.debatty.java.stringsimilarity.Jaccard
 import java.util.concurrent.Executor
 
 /**
@@ -46,6 +49,24 @@ class TextAnalyzer(
 ) : ImageAnalysis.Analyzer {
     private val detector =
         TextRecognition.getClient(TextRecognizerOptions.Builder().setExecutor(executor).build())
+//    private val textData: Map<String,String> =
+
+    private val cosineComputer: Cosine = Cosine(GRAM_SIZE)
+    private val jaccardComputer: Jaccard = Jaccard(GRAM_SIZE)
+    private val textPrecomputedCosines: Map<String,Map<String,Int>> =
+        getJson(context).mapValues {
+            cosineComputer.getProfile(it.value)
+        }
+
+    private val textPrecomputedJaccard: Map<String,Map<String,Int>> =
+        getJson(context).mapValues {
+            jaccardComputer.getProfile(it.value)
+        }
+
+    companion object{
+        const val GRAM_SIZE = 6
+        private const val TAG = "TextAnalyzer"
+    }
 
 
     init {
@@ -69,7 +90,10 @@ class TextAnalyzer(
         return detector.process(image)
             .addOnSuccessListener { visionText ->
                 // Task completed successfully
-                result.value = visionText.text
+//                result.value = visionText.text
+                result.value = calculateSimilarities(visionText.text)
+                Log.d(TAG, "result.value = ${result.value}")
+
             }
             .addOnFailureListener { exception ->
                 // Task failed with an exception
@@ -81,6 +105,31 @@ class TextAnalyzer(
             }
     }
 
+    private fun calculateSimilarities(detectedText: String):String {
+        val cosineMeasurementsString =
+            sequence {
+                val detectedTextCosProfile = cosineComputer.getProfile(detectedText)
+                textPrecomputedCosines.forEach {
+                    yield(Pair(it.key, cosineComputer.similarity(detectedTextCosProfile, it.value)))
+                }
+            }.sortedByDescending { it.second }.take(3).map {
+                "Page ${it.first}, similarity: ${it.second}"
+            }.toList().joinToString(separator = "\n", prefix = "Cosine sim:\n")
+
+//        val jaccardMeasurementsString =
+//            sequence {
+//                val detectedTextJaccardProfile = jaccardComputer.getProfile(detectedText)
+//                textPrecomputedJaccard.forEach {
+//                    yield(Pair(it.key, jaccardComputer.similarity(detectedTextJaccardProfile, it.value)))
+//                }
+//            }.sortedByDescending { it.second }.take(3).map {
+//                "Page ${it.first}, similarity: ${it.second}"
+//            }.toList().joinToString(separator = "\n", prefix = "Cosine sim:\n")
+        return cosineMeasurementsString
+
+
+
+    }
     private fun getErrorMessage(exception: Exception): String? {
         val mlKitException = exception as? MlKitException ?: return exception.message
         return if (mlKitException.errorCode == MlKitException.UNAVAILABLE) {
@@ -88,7 +137,4 @@ class TextAnalyzer(
         } else exception.message
     }
 
-    companion object {
-        private const val TAG = "TextAnalyzer"
-    }
 }
