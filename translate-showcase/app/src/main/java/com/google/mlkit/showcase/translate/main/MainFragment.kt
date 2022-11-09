@@ -147,47 +147,6 @@ class MainFragment : Fragment() {
             requestPermissions(REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
 
-        // Get available language list and set up the target language spinner
-        // with default selections.
-        val adapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_spinner_dropdown_item, viewModel.availableLanguages
-        )
-
-//        targetLangSelector.adapter = adapter
-//        targetLangSelector.setSelection(adapter.getPosition(Language("en")))
-//        targetLangSelector.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-//            override fun onItemSelected(
-//                parent: AdapterView<*>,
-//                view: View?,
-//                position: Int,
-//                id: Long
-//            ) {
-//                viewModel.targetLang.value = adapter.getItem(position)
-//            }
-//
-//            override fun onNothingSelected(parent: AdapterView<*>) {}
-//        }
-//
-//        viewModel.sourceLang.observe(viewLifecycleOwner) { srcLang.text = it.displayName }
-//        viewModel.translatedText.observe(viewLifecycleOwner) { resultOrError ->
-//            resultOrError?.let {
-//                if (it.error != null) {
-//                    translatedText.error = resultOrError.error?.localizedMessage
-//                } else {
-//                    translatedText.text = resultOrError.result
-//                }
-//            }
-//        }
-//        viewModel.modelDownloading.observe(viewLifecycleOwner) { isDownloading ->
-//            progressBar.visibility = if (isDownloading) {
-//                View.VISIBLE
-//            } else {
-//                View.INVISIBLE
-//            }
-//            progressText.visibility = progressBar.visibility
-//        }
-
         overlay.apply {
             setZOrderOnTop(true)
             holder.setFormat(PixelFormat.TRANSPARENT)
@@ -230,38 +189,25 @@ class MainFragment : Fragment() {
         }, ContextCompat.getMainExecutor(requireContext()))
     }
 
-//    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
     private fun  bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
-        // Get screen metrics used to setup camera for full screen resolution
-//        val cameraInfo = cameraProvider.availableCameraInfos.first {
-//            it!!.cameraSelector.!! == CameraSelector.LENS_FACING_BACK
-//        }
-
         val metrics = DisplayMetrics().also { viewFinder.display.getRealMetrics(it) }
-        Log.d(TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
-
-        val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
-        Log.d(TAG, "Preview aspect ratio: $screenAspectRatio")
-
-        Log.d(TAG,"size of surface: ${viewFinder.width}/${viewFinder.height}")
-
         val rotation = viewFinder.display.rotation
+        val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
+
+        //debug:
+        Log.d(TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
+        Log.d(TAG, "Preview aspect ratio: $screenAspectRatio")
+        Log.d(TAG,"size of surface: ${viewFinder.width}/${viewFinder.height}")
         Log.d(TAG,"The rotations is: ${rotation}. (0 = 0 degrees, 1 = 90 degrees etc.)")
 
+
     val requestedCameraFOV = Size(metrics.widthPixels,metrics.heightPixels)
-//    val requestedCameraFOV = Size(500,2000)
-
-
     val preview = Preview.Builder()
-//            .setTargetAspectRatio(screenAspectRatio)
             .setTargetRotation(rotation)
             .setTargetResolution(requestedCameraFOV)
             .build()
         // Build the image analysis use case and instantiate our analyzer
         imageAnalyzer = ImageAnalysis.Builder()
-            // We request aspect ratio but no resolution
-//            .setTargetAspectRatio(screenAspectRatio)
-//            .setSi
             .setTargetResolution(requestedCameraFOV)
             .setTargetRotation(rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -273,7 +219,6 @@ class MainFragment : Fragment() {
                         lifecycle,
                         cameraExecutor,
                         viewModel.sourceText,
-                        viewModel.imageCropPercentages
                     )
                 )
             }
@@ -294,15 +239,6 @@ class MainFragment : Fragment() {
             )
             viewFinder.scaleType = PreviewView.ScaleType.FIT_CENTER
             preview.setSurfaceProvider(viewFinder.surfaceProvider)
-//            val cameraId = Camera2CameraInfo.from(camera!!.cameraInfo).cameraId
-//            val cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
-//            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
-//            val configs: StreamConfigurationMap? = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-//
-//            val imageAnalysisSizes = configs?.getOutputSizes(ImageFormat.YUV_420_888)
-//            imageAnalysisSizes?.forEach {
-//                Log.i("LOG", "Image capturing YUV_420_888 available output size: $it")
-//            }
         } catch (exc: IllegalStateException) {
             Log.e(TAG, "Use case binding failed. This must be running on main thread.", exc)
         }
